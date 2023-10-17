@@ -52,6 +52,87 @@ function addNode(tree, { id: nodeId, parent, label }) {
   return { id };
 }
 
+function getNode(tree, id) {
+  if (!tree.flatTree[id]) {
+    throw new RestError({ status: 404, body: { error: 'Node not found!' } });
+  }
+
+  return tree.flatTree[id];
+}
+
+function updateNode(tree, id, { parent, label }) {
+  const node = tree.flatTree[id];
+
+  if (!node) {
+    throw new RestError({ status: 404, body: { error: 'Node not found!' } });
+  }
+
+  if (parent !== undefined && parent !== node.parent) {
+    if (parent && !tree.flatTree[parent]) {
+      throw new RestError({ status: 404, body: { error: 'Parent not found!' } });
+    }
+
+    // TODO: CHECK FOR CYCLES!!!!
+
+    // Remove the node from the old parent's children.
+    const parentChildren = Object.values(tree.flatTree)
+      .find((n) => n.children.find((child) => child[id]))?.children
+      || tree.deepTree;
+    parentChildren.splice(parentChildren.findIndex((child) => child[id]), 1);
+
+    // Add the node to the new parent's children.
+    if (parent == null) {
+      tree.deepTree.push({ [id]: node });
+    } else if (tree.flatTree[parent]) {
+      tree.flatTree[parent].children.push({ [id]: node });
+    }
+  }
+
+  if (label !== undefined) {
+    if (!label) {
+      throw new RestError({ status: 400, body: { error: 'Label is requried!' } });
+    }
+
+    node.label = label;
+  }
+
+  return { id };
+}
+
+function _deleteNodeChildren(tree, node) {
+    const id = Object.keys(node)[0];
+
+    node[id].children.forEach((child) => {
+        _deleteNodeChildren(tree, child)
+    });
+
+    delete tree.flatTree[id];
+}
+
+function deleteNode(tree, id, keepChildren = false) {
+  const node = tree.flatTree[id];
+
+  if (!node) {
+    throw new RestError({ status: 404, body: { error: 'Node not found!' } });
+  }
+
+  // Remove the node from the parent's children.
+  const parentChildren = Object.values(tree.flatTree)
+    .find((n) => n.children.find((child) => child[id]))?.children
+    || tree.deepTree;
+  parentChildren.splice(parentChildren.findIndex((child) => child[id]), 1);
+
+  if (keepChildren) {
+    node.children.forEach((child) => parentChildren.push(child));
+  } else {
+    _deleteNodeChildren(tree, {[id]: node});
+  }
+
+  // Remove the node from the flatTree cache
+  // eslint-disable-next-line no-param-reassign
+  delete tree.flatTree[id];
+}
+
 // TODO: Tree initialization from whatever storage. See examples below.
 
 // ====================NoSQL====================
@@ -90,3 +171,6 @@ roots.forEach(root => rebuildTree(root));
 
 exports.Tree = Tree;
 exports.addNode = addNode;
+exports.getNode = getNode;
+exports.updateNode = updateNode;
+exports.deleteNode = deleteNode;

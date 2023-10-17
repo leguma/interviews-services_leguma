@@ -15,7 +15,7 @@ test('addNode adds a root node when no parent is specified', () => {
   expect(tree.deepTree.length).toBe(1);
   expect(tree.deepTree[0][rootId].label).toBe(rootLabel);
   expect(Object.keys(tree.flatTree).length).toBe(1);
-  expect(tree.flatTree[rootId].label).toBe(rootLabel);
+  expect(tree.flatTree[rootId].ref.label).toBe(rootLabel);
 });
 
 test('Multiple root nodes can be added', () => {
@@ -29,8 +29,8 @@ test('Multiple root nodes can be added', () => {
   expect(tree.deepTree[0][rootId1].label).toBe(rootLabel1);
   expect(tree.deepTree[1][rootId2].label).toBe(rootLabel2);
   expect(Object.keys(tree.flatTree).length).toBe(2);
-  expect(tree.flatTree[rootId1].label).toBe(rootLabel1);
-  expect(tree.flatTree[rootId2].label).toBe(rootLabel2);
+  expect(tree.flatTree[rootId1].ref.label).toBe(rootLabel1);
+  expect(tree.flatTree[rootId2].ref.label).toBe(rootLabel2);
 });
 
 test('Unique IDs are generated for new nodes, if one is not provided', () => {
@@ -55,9 +55,9 @@ test('Child nodes can be added', () => {
   expect(tree.deepTree[0][rootId].children[0][childId1].label).toBe(childLabel1);
   expect(tree.deepTree[0][rootId].children[1][childId2].label).toBe(childLabel2);
   expect(Object.keys(tree.flatTree).length).toBe(3);
-  expect(tree.flatTree[rootId].label).toBe(rootLabel);
-  expect(tree.flatTree[childId1].label).toBe(childLabel1);
-  expect(tree.flatTree[childId2].label).toBe(childLabel2);
+  expect(tree.flatTree[rootId].ref.label).toBe(rootLabel);
+  expect(tree.flatTree[childId1].ref.label).toBe(childLabel1);
+  expect(tree.flatTree[childId2].ref.label).toBe(childLabel2);
 });
 
 test('Children can be infinitely nested', () => {
@@ -74,9 +74,9 @@ test('Children can be infinitely nested', () => {
   expect(tree.deepTree[0][rootId].children[0][childId]
     .children[0][grandChildId].label).toBe(grandChildLabel);
   expect(Object.keys(tree.flatTree).length).toBe(3);
-  expect(tree.flatTree[rootId].label).toBe(rootLabel);
-  expect(tree.flatTree[childId].label).toBe(childLabel);
-  expect(tree.flatTree[grandChildId].label).toBe(grandChildLabel);
+  expect(tree.flatTree[rootId].ref.label).toBe(rootLabel);
+  expect(tree.flatTree[childId].ref.label).toBe(childLabel);
+  expect(tree.flatTree[grandChildId].ref.label).toBe(grandChildLabel);
 });
 
 test('Adding a child whose parent does not exist throws an error', () => {

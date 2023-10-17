@@ -41,13 +41,13 @@ function addNode(tree, { id: nodeId, parent, label }) {
   if (parent == null) {
     tree.deepTree.push({ [id]: node });
   } else if (tree.flatTree[parent]) {
-    tree.flatTree[parent].children.push({ [id]: node });
+    tree.flatTree[parent].ref.children.push({ [id]: node });
   } else {
     throw new RestError({ status: 404, body: { error: 'Parent not found!' } });
   }
 
   // eslint-disable-next-line no-param-reassign
-  tree.flatTree[id] = node;
+  tree.flatTree[id] = { parent, ref: node };
 
   return { id };
 }
@@ -57,7 +57,20 @@ function getNode(tree, id) {
     throw new RestError({ status: 404, body: { error: 'Node not found!' } });
   }
 
-  return tree.flatTree[id];
+  return tree.flatTree[id].ref;
+}
+
+function isChild(tree, parentId, childId) {
+  let id = childId;
+  while (tree.flatTree[id].parent) {
+    id = tree.flatTree[id].parent;
+
+    if (id === parentId) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function updateNode(tree, id, { parent, label }) {
@@ -67,25 +80,28 @@ function updateNode(tree, id, { parent, label }) {
     throw new RestError({ status: 404, body: { error: 'Node not found!' } });
   }
 
-  if (parent !== undefined && parent !== node.parent) {
+  // eslint-disable-next-line eqeqeq
+  if (parent !== undefined && parent != node.parent) {
     if (parent && !tree.flatTree[parent]) {
       throw new RestError({ status: 404, body: { error: 'Parent not found!' } });
     }
 
-    // TODO: CHECK FOR CYCLES!!!!
+    if (parent && (parent === id || isChild(tree, id, parent))) {
+      throw new RestError({ status: 400, body: { error: 'Cycle detected!' } });
+    }
 
     // Remove the node from the old parent's children.
-    const parentChildren = Object.values(tree.flatTree)
-      .find((n) => n.children.find((child) => child[id]))?.children
-      || tree.deepTree;
+    const parentChildren = node.parent ? tree.flatTree[node.parent].ref.children : tree.deepTree;
     parentChildren.splice(parentChildren.findIndex((child) => child[id]), 1);
 
     // Add the node to the new parent's children.
     if (parent == null) {
-      tree.deepTree.push({ [id]: node });
+      tree.deepTree.push({ [id]: node.ref });
     } else if (tree.flatTree[parent]) {
-      tree.flatTree[parent].children.push({ [id]: node });
+      tree.flatTree[parent].ref.children.push({ [id]: node.ref });
     }
+
+    node.parent = parent;
   }
 
   if (label !== undefined) {
@@ -93,20 +109,21 @@ function updateNode(tree, id, { parent, label }) {
       throw new RestError({ status: 400, body: { error: 'Label is requried!' } });
     }
 
-    node.label = label;
+    node.ref.label = label;
   }
 
   return { id };
 }
 
-function _deleteNodeChildren(tree, node) {
-    const id = Object.keys(node)[0];
+function deleteNodeChildren(tree, node) {
+  const id = Object.keys(node)[0];
 
-    node[id].children.forEach((child) => {
-        _deleteNodeChildren(tree, child)
-    });
+  node[id].children.forEach((child) => {
+    deleteNodeChildren(tree, child);
+  });
 
-    delete tree.flatTree[id];
+  // eslint-disable-next-line no-param-reassign
+  delete tree.flatTree[id];
 }
 
 function deleteNode(tree, id, keepChildren = false) {
@@ -117,15 +134,20 @@ function deleteNode(tree, id, keepChildren = false) {
   }
 
   // Remove the node from the parent's children.
-  const parentChildren = Object.values(tree.flatTree)
-    .find((n) => n.children.find((child) => child[id]))?.children
-    || tree.deepTree;
+  const parentChildren = node.parent ? tree.flatTree[node.parent].ref.children : tree.deepTree;
+
   parentChildren.splice(parentChildren.findIndex((child) => child[id]), 1);
 
   if (keepChildren) {
-    node.children.forEach((child) => parentChildren.push(child));
+    node.ref.children.forEach((child) => {
+      const childId = Object.keys(child)[0];
+      // eslint-disable-next-line no-param-reassign
+      tree.flatTree[childId].parent = node.parent;
+
+      parentChildren.push(child);
+    });
   } else {
-    _deleteNodeChildren(tree, {[id]: node});
+    deleteNodeChildren(tree, { [id]: node.ref });
   }
 
   // Remove the node from the flatTree cache
